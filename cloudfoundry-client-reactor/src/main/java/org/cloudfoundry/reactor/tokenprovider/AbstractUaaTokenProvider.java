@@ -252,7 +252,7 @@ public abstract class AbstractUaaTokenProvider implements TokenProvider {
         return connectionContext.getCacheDuration()
             .map(cached::cache)
             .orElseGet(cached::cache)
-            .checkpoint();
+            .checkpoint("token");
     }
 
     @SuppressWarnings("unchecked")

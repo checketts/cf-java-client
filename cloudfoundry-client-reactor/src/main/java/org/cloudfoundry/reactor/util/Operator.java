@@ -22,6 +22,8 @@ import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import org.cloudfoundry.reactor.HttpClientResponseWithBody;
 import org.reactivestreams.Publisher;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.util.UriComponentsBuilder;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -44,6 +46,8 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 public class Operator extends OperatorContextAware {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger("cloudfoundry-client.operator");
 
     private final HttpClient httpClient;
 
@@ -197,6 +201,7 @@ public class Operator extends OperatorContextAware {
             return inbound
                 .doOnNext(response -> {
                     if (isUnauthorized(response)) {
+                        LOGGER.debug("Not authorized response path:{} {}. Attempting to refresh token", response.getResponse().method(), response.getResponse().path());
                         this.context.getTokenProvider().ifPresent(tokenProvider -> tokenProvider.invalidate(this.context.getConnectionContext()));
                         throw new InvalidTokenException();
                     }
@@ -206,7 +211,7 @@ public class Operator extends OperatorContextAware {
         private Flux<HttpClientResponseWithBody> processResponse(Flux<HttpClientResponseWithBody> inbound) {
             return inbound
                 .transform(this::invalidateToken)
-                .retry(t -> t instanceof InvalidTokenException)
+                .retry(100, t -> t instanceof InvalidTokenException)
                 .transform(this.context.getErrorPayloadMapper()
                     .orElse(ErrorPayloadMappers.fallback()));
         }
